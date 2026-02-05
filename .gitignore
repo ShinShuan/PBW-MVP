@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+dist/
+build/
+.pnpm-debug.log*
+
+# IDEs
+.vscode/
+.idea/
+.clj-kondo/
+.lsp/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+/apps/payment-orchestrator/src/generated-client/
+
+# Antigravity / Agent
+.gemini/
+.agent/
+/brain/
+/temp/
+gen_report.txt
+prisma_out.txt
+build_err.txt
