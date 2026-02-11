@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>TPE Émulé - Paiement Crypto</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      background: #0a0a0a;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+
+    #screen {
+      border: 8px solid #333;
+      border-radius: 20px;
+      background: #1a1a1a;
+      padding: 40px;
+      max-width: 400px;
+      margin: 40px auto;
+      min-height: 550px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #qr {
+      margin: 20px auto;
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    #status {
+      font-size: 1.2em;
+      margin: 20px;
+      color: #aaa;
+    }
+
+    #amount {
+      font-size: 3em;
+      font-weight: bold;
+      color: #4ade80;
+    }
+
+    h2 {
+      color: #facc15;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .footer {
+      font-size: 0.8em;
+      color: #555;
+    }
+
+    #success-icon {
+      font-size: 5em;
+      color: #4ade80;
+      display: none;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+
+<body>
+  <div id="screen">
+    <div id="input-screen">
+      <div>
+        <h2>PBW Terminal</h2>
+        <div id="status">Prêt à encaisser</div>
+      </div>
+      <div style="margin: 20px 0;">
+        <input type="number" id="fiat-input" placeholder="0.00" step="0.01"
+          style="font-size: 2em; width: 80%; padding: 10px; text-align: center; border-radius: 10px; border: none;">
+        <br><br>
+        <select id="network-select" style="font-size: 1.2em; padding: 10px; border-radius: 5px;">
+          <option value="SOLANA">Solana Devnet</option>
+          <option value="BSC">BSC Testnet</option>
+        </select>
+        <br><br>
+        <button onclick="charge()"
+          style="font-size: 1.5em; padding: 15px 40px; background: #facc15; color: black; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">ENCAISSER</button>
+      </div>
+    </div>
+
+    <div id="payment-screen" style="display: none;">
+      <div>
+        <h2>PBW Terminal</h2>
+        <div id="status">En attente de transaction...</div>
+      </div>
+
+      <div>
+        <div id="amount-display">-- €</div>
+        <div id="qr"></div>
+        <div id="success-icon">✓</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p id="instruction">Scannez pour payer</p>
+      <p>© PBW MVP 2026</p>
+    </div>
+  </div>
+
+  <script>
+    // Integration with NestJS Socket.io Gateway
+    const socket = io('http://localhost:8081');
+    let currentAmount = 0;
+    let currentNetwork = 'BSC';
+
+    socket.on('connect', () => {
+      console.log('Connecté au backend TPE');
+    });
+
+    socket.on('PAYMENT_REQUEST', (data) => {
+      console.log('Demande de paiement reçue:', data);
+      document.getElementById('amount-display').innerText = `${(data.amount / 100).toFixed(2)} €`;
+      document.getElementById('status').innerText = 'Veuillez payer en crypto';
+      document.getElementById('instruction').innerText = 'Scannez ce QR avec votre wallet';
+      document.getElementById('success-icon').style.display = 'none';
+      document.getElementById('input-screen').style.display = 'none';
+      document.getElementById('payment-screen').style.display = 'block';
+
+      // Dynamic QR Content 
+      // For MVP, using a default scalar for SOL conversion roughly or getting it from backend response would be better.
+      // But the backend triggers this via socket independently of the HTTP response context in current flow.
+      // We will rely on the backend logging for the exact crypto amount for now, or improving the socket event to send it.
+
+      const qrDiv = document.getElementById('qr');
+      qrDiv.style.display = 'block';
+      qrDiv.innerHTML = ''; // Clear previous
+
+      // We need the crypto amount and address here. 
+      // Ideally the socket event 'PAYMENT_REQUEST' should carry this info.
+      // For now, generating a generic one for demo or assuming we entered it.
+      const address = currentNetwork === 'SOLANA' ? 'EbD4gX8X8x8x8x8x8x8x8x8x8x8x8x8x8x8x8x8x8x8x' : '0xMerchant';
+      const label = 'PBW%20Payment';
+
+      let qrContent = '';
+      if (currentNetwork === 'SOLANA') {
+        qrContent = `solana:${address}?label=${label}`;
+      } else {
+        qrContent = `ethereum:${address}?label=${label}`;
+      }
+
+      const canvas = document.createElement('canvas');
+      qrDiv.appendChild(canvas);
+
+      QRCode.toCanvas(canvas, qrContent, { width: 280 }, (error) => {
+        if (error) console.error(error);
+      });
+    });
+
+    socket.on('PAYMENT_CONFIRMED', (data) => {
+      console.log('Paiement confirmé !');
+      document.getElementById('status').innerText = 'PAIEMENT ACCEPTÉ';
+      document.getElementById('status').style.color = '#4ade80';
+      document.getElementById('qr').style.display = 'none';
+      document.getElementById('success-icon').style.display = 'block';
+      document.getElementById('instruction').innerText = 'Merci de votre visite';
+
+      setTimeout(() => {
+        resetUI();
+      }, 5000);
+    });
+
+    function charge() {
+      const amount = document.getElementById('fiat-input').value;
+      const network = document.getElementById('network-select').value;
+      currentAmount = amount;
+      currentNetwork = network;
+
+      if (!amount || amount <= 0) return alert('Montant invalide');
+
+      console.log('Initiating payment:', { amount, network });
+
+      fetch('http://localhost:3000/simulation/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fiatAmount: Number(amount),
+          currency: 'EUR',
+          network: network
+        })
+      })
+        .then(res => {
+          console.log('Response status:', res.status);
+          return res.json();
+        })
+        .then(data => {
+          console.log('Payment initiated:', data);
+        })
+        .catch(error => {
+          console.error('Error initiating payment:', error);
+          alert('Erreur de connexion au serveur. Vérifiez que l\'orchestrateur est lancé.');
+        });
+    }
+
+    function resetUI() {
+      document.getElementById('input-screen').style.display = 'block';
+      document.getElementById('payment-screen').style.display = 'none';
+      document.getElementById('status').innerText = 'En attente de transaction...';
+      document.getElementById('status').style.color = '#aaa';
+      document.getElementById('fiat-input').value = '';
+    }
+  </script>
+</body>
+
+</html>

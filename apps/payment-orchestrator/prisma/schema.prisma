@@ -18,6 +18,7 @@ enum TransactionStatus {
   PENDING
   VALIDATED
   REFUSED
+  PARTIAL_PAYMENT
 }
 
 model Transaction {

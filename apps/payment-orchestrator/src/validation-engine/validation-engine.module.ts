@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ValidationEngineService } from './validation-engine.service';
 
 @Module({
-  providers: [ValidationEngineService]
+  providers: [ValidationEngineService],
+  exports: [ValidationEngineService]
 })
-export class ValidationEngineModule {}
+export class ValidationEngineModule { }
